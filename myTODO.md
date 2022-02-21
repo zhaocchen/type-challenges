@@ -1,2 +1,3 @@
 - [x] 13.hello word 
-- [ ] 4.pick
+- [x] 4.pick
+- [ ] 7.readonly
