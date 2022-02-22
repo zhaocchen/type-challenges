@@ -1,3 +1,4 @@
 - [x] 13.hello word 
 - [x] 4.pick
-- [ ] 7.readonly
+- [x] 7.readonly
+- [ ] 11.Tuple to Object
