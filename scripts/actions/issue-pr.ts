@@ -1,7 +1,7 @@
 import YAML from 'js-yaml'
 import slug from 'limax'
 import { PushCommit } from '@type-challenges/octokit-create-pull-request'
-import { Action, Context, Github, Quiz } from '../types'
+import type { Action, Context, Github, Quiz } from '../types'
 import { t } from '../locales'
 import { toPlaygroundUrl } from '../toUrl'
 import { toBadgeLink } from '../readme'
@@ -9,7 +9,7 @@ import { resolveFilePath } from '../utils/resolve'
 import { formatToCode } from './utils/formatToCode'
 
 const Messages = {
-  en: {
+  'en': {
     info: 'Info',
     template: 'Template',
     tests: 'Test Cases',
@@ -41,12 +41,13 @@ const Messages = {
 
 export const getOthers = <A, B>(condition: boolean, a: A, b: B): A | B => condition ? a : b
 
-const action: Action = async(github, context, core) => {
+const action: Action = async (github, context, core) => {
   const payload = context.payload || {}
   const issue = payload.issue
   const no = context.issue.number
 
-  if (!issue) return
+  if (!issue)
+    return
 
   const labels: string[] = (issue.labels || [])
     .map((i: any) => i && i.name)
@@ -84,7 +85,7 @@ const action: Action = async(github, context, core) => {
       return
     }
 
-    const { data: user } = await github.users.getByUsername({
+    const { data: user } = await github.rest.users.getByUsername({
       username: issue.user.login,
     })
 
@@ -116,18 +117,17 @@ const action: Action = async(github, context, core) => {
     core.info('-----Parsed-----')
     core.info(JSON.stringify(quiz, null, 2))
 
-    const { data: pulls } = await github.pulls.list({
+    const { data: pulls } = await github.rest.pulls.list({
       owner: context.repo.owner,
       repo: context.repo.repo,
       state: 'open',
     })
 
     const existing_pull = pulls.find(
-      i =>
-        i.user.login === 'github-actions[bot]' && i.title.startsWith(`#${no} `),
+      i => i.user?.login === 'github-actions[bot]' && i.title.startsWith(`#${no} `),
     )
 
-    const dir = `questions/${no}-${info.difficulty}-${slug(
+    const dir = `questions/${String(no).padStart(5, '0')}-${info.difficulty}-${slug(
       info.title.replace(/\./g, '-').replace(/<.*>/g, ''),
       { tone: false },
     )}`
@@ -143,13 +143,13 @@ const action: Action = async(github, context, core) => {
     await PushCommit(github, {
       owner: context.repo.owner,
       repo: context.repo.repo,
-      base: 'master',
+      base: 'main',
       head: `pulls/${no}`,
       changes: {
         files,
         commit: `feat(question): add #${no} - ${info.title}`,
         author: {
-          name: user.name || user.login,
+          name: (user.name || user.id || user.login) as string,
           email: userEmail,
         },
       },
@@ -182,17 +182,17 @@ const action: Action = async(github, context, core) => {
     }
     else {
       core.info('-----Creating PR-----')
-      const { data: pr } = await github.pulls.create({
+      const { data: pr } = await github.rest.pulls.create({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        base: 'master',
+        base: 'main',
         head: `pulls/${no}`,
         title: `#${no} - ${info.title}`,
         body: `This is an auto-generated PR that auto reflect on #${no}, please go to #${no} for discussion or making changes.\n\nCloses #${no}`,
         labels: ['auto-generated'],
       })
 
-      await github.issues.addLabels({
+      await github.rest.issues.addLabels({
         owner: context.repo.owner,
         repo: context.repo.repo,
         issue_number: pr.number,
@@ -212,18 +212,18 @@ const action: Action = async(github, context, core) => {
 }
 
 async function updateComment(github: Github, context: Context, body: string) {
-  const { data: comments } = await github.issues.listComments({
+  const { data: comments } = await github.rest.issues.listComments({
     issue_number: context.issue.number,
     owner: context.repo.owner,
     repo: context.repo.repo,
   })
 
   const existing_comment = comments.find(
-    i => i.user.login === 'github-actions[bot]',
+    i => i.user?.login === 'github-actions[bot]',
   )
 
   if (existing_comment) {
-    return await github.issues.updateComment({
+    return await github.rest.issues.updateComment({
       comment_id: existing_comment.id,
       issue_number: context.issue.number,
       owner: context.repo.owner,
@@ -232,7 +232,7 @@ async function updateComment(github: Github, context: Context, body: string) {
     })
   }
   else {
-    return await github.issues.createComment({
+    return await github.rest.issues.createComment({
       issue_number: context.issue.number,
       owner: context.repo.owner,
       repo: context.repo.repo,
@@ -246,14 +246,16 @@ function getCodeBlock(text: string, title: string, lang = 'ts') {
     `## ${title}[\\s\\S]*?\`\`\`${lang}([\\s\\S]*?)\`\`\``,
   )
   const match = text.match(regex)
-  if (match && match[1]) return match[1].toString().trim()
+  if (match && match[1])
+    return match[1].toString().trim()
   return null
 }
 
 function getCommentRange(text: string, key: string) {
   const regex = new RegExp(`<!--${key}-start-->([\\s\\S]*?)<!--${key}-end-->`)
   const match = text.match(regex)
-  if (match && match[1]) return match[1].toString().trim()
+  if (match && match[1])
+    return match[1].toString().trim()
   return null
 }
 
