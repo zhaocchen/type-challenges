@@ -1,1 +1,1 @@
-type Length<T extends any[]> = T['length'];
+type Length<T extends any[]> = T['length']
